@@ -40,6 +40,7 @@ var Cases = []struct {
 func TFailsIfRequestDoesNotExist(t *testing.T, db driver.TokenTransactionDB) {
 	tx := driver.TransactionRecord{
 		TxID:         "tx1",
+		Index:        0,
 		ActionType:   driver.Transfer,
 		SenderEID:    "bob",
 		RecipientEID: "alice",
@@ -77,6 +78,7 @@ func TFailsIfRequestDoesNotExist(t *testing.T, db driver.TokenTransactionDB) {
 func TStatus(t *testing.T, db driver.TokenTransactionDB) {
 	tx := driver.TransactionRecord{
 		TxID:         "tx1",
+		Index:        0,
 		ActionType:   driver.Transfer,
 		SenderEID:    "bob",
 		RecipientEID: "alice",
@@ -115,7 +117,11 @@ func TStatus(t *testing.T, db driver.TokenTransactionDB) {
 	assert.Len(t, mvs, 1)
 	assert.Equal(t, driver.Pending, mvs[0].Status, "movement status should be pending")
 
-	assert.NoError(t, db.SetStatus("tx1", driver.Confirmed, "message"))
+	w, err = db.BeginAtomicWrite()
+	assert.NoError(t, err)
+	assert.NoError(t, w.SetStatus("tx1", driver.Confirmed, "message"))
+	assert.NoError(t, w.Commit())
+
 	s, mess, err = db.GetStatus("tx1")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Confirmed, s, "status should be changed to confirmed")
@@ -137,6 +143,7 @@ func TStoresTimestamp(t *testing.T, db driver.TokenTransactionDB) {
 	assert.NoError(t, w.AddTokenRequest("tx1", []byte("")))
 	assert.NoError(t, w.AddTransaction(&driver.TransactionRecord{
 		TxID:         "tx1",
+		Index:        0,
 		ActionType:   driver.Transfer,
 		SenderEID:    "bob",
 		RecipientEID: "alice",
@@ -250,6 +257,7 @@ func TTransaction(t *testing.T, db driver.TokenTransactionDB) {
 		now := time.Now()
 		tr1 := &driver.TransactionRecord{
 			TxID:         fmt.Sprintf("tx%d", i),
+			Index:        0,
 			ActionType:   driver.Issue,
 			SenderEID:    "",
 			RecipientEID: "alice",
@@ -349,6 +357,7 @@ func TAllowsSameTxID(t *testing.T, db driver.TokenTransactionDB) {
 	// bob sends 10 to alice
 	tr1 := &driver.TransactionRecord{
 		TxID:         "1",
+		Index:        0,
 		ActionType:   driver.Transfer,
 		SenderEID:    "bob",
 		RecipientEID: "alice",
@@ -359,6 +368,7 @@ func TAllowsSameTxID(t *testing.T, db driver.TokenTransactionDB) {
 	// 1 is sent back to bobs wallet as change
 	tr2 := &driver.TransactionRecord{
 		TxID:         "1",
+		Index:        0,
 		ActionType:   driver.Transfer,
 		SenderEID:    "bob",
 		RecipientEID: "bob",
@@ -393,6 +403,7 @@ func TRollback(t *testing.T, db driver.TokenTransactionDB) {
 	}
 	tr1 := &driver.TransactionRecord{
 		TxID:         "1",
+		Index:        0,
 		ActionType:   driver.Transfer,
 		SenderEID:    "bob",
 		RecipientEID: "alice",
@@ -419,6 +430,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 	tr := []driver.TransactionRecord{
 		{
 			TxID:         "1",
+			Index:        0,
 			ActionType:   driver.Issue,
 			SenderEID:    "",
 			RecipientEID: "bob",
@@ -429,6 +441,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "2",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -439,6 +452,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "2",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "bob",
@@ -449,6 +463,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "3",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -459,6 +474,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "4",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -469,6 +485,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "5",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -479,6 +496,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "6",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "bob",
@@ -489,6 +507,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "7",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "bob",
@@ -499,6 +518,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "7",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "dan",
@@ -509,6 +529,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "8",
+			Index:        0,
 			ActionType:   driver.Redeem,
 			SenderEID:    "dan",
 			RecipientEID: "carlos",
@@ -519,6 +540,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "9",
+			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "dan",
@@ -529,6 +551,7 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "10",
+			Index:        0,
 			ActionType:   driver.Redeem,
 			SenderEID:    "alice",
 			RecipientEID: "",
@@ -630,6 +653,9 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 			assert.NoError(t, w.AddTokenRequest(r.TxID, []byte{}))
 		}
 		assert.NoError(t, w.AddTransaction(&r))
+		if r.Status != driver.Pending {
+			assert.NoError(t, w.SetStatus(r.TxID, r.Status, ""))
+		}
 		previous = r.TxID
 	}
 	assert.NoError(t, w.Commit())
@@ -701,6 +727,9 @@ func TValidationRecordQueries(t *testing.T, db driver.TokenTransactionDB) {
 	for _, e := range exp {
 		assert.NoError(t, w.AddTokenRequest(e.TxID, e.TokenRequest))
 		assert.NoError(t, w.AddValidationRecord(e.TxID, e.Metadata), "AddValidationRecord "+e.TxID)
+		if e.Status != driver.Pending {
+			assert.NoError(t, w.SetStatus(e.TxID, e.Status, ""))
+		}
 	}
 	assert.NoError(t, w.Commit(), "Commit")
 	for _, e := range exp {
