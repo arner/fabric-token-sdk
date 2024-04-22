@@ -119,8 +119,8 @@ func (db *TransactionDB) QueryMovements(params driver.QueryMovementsParams) (res
 func (db *TransactionDB) QueryTransactions(params driver.QueryTransactionsParams) (driver.TransactionIterator, error) {
 	conditions, args := transactionsConditionsSql(params)
 	query := fmt.Sprintf(
-		"SELECT %s.tx_id, action_type, sender_eid, recipient_eid, token_type, amount, %s.status, stored_at FROM %s %s %s",
-		db.table.Transactions, db.table.Requests,
+		"SELECT %s.tx_id, action_type, sender_eid, recipient_eid, token_type, amount, %s.status, %s.application_metadata, stored_at FROM %s %s %s",
+		db.table.Transactions, db.table.Requests, db.table.Requests,
 		db.table.Transactions, joinOnTxID(db.table.Transactions, db.table.Requests), conditions)
 
 	logger.Debug(query, args)
@@ -151,8 +151,8 @@ func (db *TransactionDB) GetStatus(txID string) (driver.TxStatus, string, error)
 
 func (db *TransactionDB) QueryValidations(params driver.QueryValidationRecordsParams) (driver.ValidationRecordsIterator, error) {
 	conditions, args := validationConditionsSql(params)
-	query := fmt.Sprintf("SELECT %s.tx_id, %s.request, metadata, %s.status, stored_at FROM %s %s %s",
-		db.table.Validations, db.table.Requests, db.table.Requests,
+	query := fmt.Sprintf("SELECT %s.tx_id, %s.request, metadata, %s.status, %s.stored_at FROM %s %s %s",
+		db.table.Validations, db.table.Requests, db.table.Requests, db.table.Validations,
 		db.table.Validations, joinOnTxID(db.table.Validations, db.table.Requests), conditions)
 
 	logger.Debug(query, args)
@@ -175,7 +175,7 @@ func (db *TransactionDB) AddTransactionEndorsementAck(txID string, endorser view
 		return errors.Wrapf(err, "error generating uuid")
 	}
 	if _, err = db.db.Exec(query, id, txID, endorser, sigma, now); err != nil {
-		return dbError(err)
+		return ttxDBError(err)
 	}
 	return
 }
@@ -243,7 +243,8 @@ func (db *TransactionDB) GetSchema() string {
 			tx_id TEXT NOT NULL PRIMARY KEY,
 			request BYTEA NOT NULL,
 			status INT NOT NULL,
-			status_message TEXT NOT NULL
+			status_message TEXT NOT NULL,
+			application_metadata JSONB NOT NULL
 		);
 
 		-- transactions
@@ -273,14 +274,14 @@ func (db *TransactionDB) GetSchema() string {
 		-- validations
 		CREATE TABLE IF NOT EXISTS %s (
 			tx_id TEXT NOT NULL PRIMARY KEY REFERENCES %s,
-			metadata BYTEA NOT NULL,
+			metadata JSONB NOT NULL,
 			stored_at TIMESTAMP NOT NULL
 		);
 
 		-- tea
 		CREATE TABLE IF NOT EXISTS %s (
 			id CHAR(36) NOT NULL PRIMARY KEY,
-			tx_id TEXT NOT NULL REFERENCES %s,
+			tx_id TEXT NOT NULL,
 			endorser BYTEA NOT NULL,
             sigma BYTEA NOT NULL,
 			stored_at TIMESTAMP NOT NULL
@@ -291,7 +292,7 @@ func (db *TransactionDB) GetSchema() string {
 		db.table.Transactions, db.table.Requests, db.table.Transactions, db.table.Transactions,
 		db.table.Movements, db.table.Requests, db.table.Movements, db.table.Movements,
 		db.table.Validations, db.table.Requests,
-		db.table.TransactionEndorseAck, db.table.Requests, db.table.TransactionEndorseAck, db.table.TransactionEndorseAck,
+		db.table.TransactionEndorseAck, db.table.TransactionEndorseAck, db.table.TransactionEndorseAck,
 	)
 }
 
@@ -323,6 +324,7 @@ func (t *TransactionIterator) Next() (*driver.TransactionRecord, error) {
 	var actionType int
 	var amount int64
 	var status int
+	var metadata []byte
 	// tx_id, action_type, sender_eid, recipient_eid, token_type, amount, status, stored_at
 	err := t.txs.Scan(
 		&r.TxID,
@@ -332,8 +334,13 @@ func (t *TransactionIterator) Next() (*driver.TransactionRecord, error) {
 		&r.TokenType,
 		&amount,
 		&status,
+		&metadata,
 		&r.Timestamp,
 	)
+	if err := unmarshal(metadata, &r.ApplicationMetadata); err != nil {
+		logger.Errorf("error unmarshaling application metadata: %v", metadata)
+		return &r, errors.New("error umarshaling application metadata")
+	}
 
 	r.ActionType = driver.ActionType(actionType)
 	r.Amount = big.NewInt(amount)
@@ -450,19 +457,27 @@ func (w *AtomicWrite) AddTransaction(r *driver.TransactionRecord) error {
 	logger.Debug(query, args)
 	_, err = w.txn.Exec(query, args...)
 
-	return dbError(err)
+	return ttxDBError(err)
 }
 
-func (w *AtomicWrite) AddTokenRequest(txID string, tr []byte) error {
+func (w *AtomicWrite) AddTokenRequest(txID string, tr []byte, applicationMetadata map[string][]byte) error {
 	logger.Debugf("adding token request [%s]", txID)
 	if w.txn == nil {
 		return errors.New("no db transaction in progress")
 	}
-	query := fmt.Sprintf("INSERT INTO %s (tx_id, request, status, status_message) VALUES ($1, $2, $3, $4)", w.db.table.Requests)
-	logger.Debug(query, txID, fmt.Sprintf("(%d bytes)", len(tr)))
+	if applicationMetadata == nil {
+		applicationMetadata = make(map[string][]byte)
+	}
+	j, err := marshal(applicationMetadata)
+	if err != nil {
+		return errors.New("error marshaling application metadata")
+	}
 
-	_, err := w.txn.Exec(query, txID, tr, driver.Pending, "")
-	return dbError(err)
+	query := fmt.Sprintf("INSERT INTO %s (tx_id, request, status, status_message, application_metadata) VALUES ($1, $2, $3, $4, $5)", w.db.table.Requests)
+	logger.Debug(query, txID, fmt.Sprintf("(%d bytes)", len(tr)), len(applicationMetadata))
+
+	_, err = w.txn.Exec(query, txID, tr, driver.Pending, "", j)
+	return ttxDBError(err)
 }
 
 func (w *AtomicWrite) AddMovement(r *driver.MovementRecord) error {
@@ -486,7 +501,7 @@ func (w *AtomicWrite) AddMovement(r *driver.MovementRecord) error {
 	logger.Debug(query, args)
 	_, err = w.txn.Exec(query, args...)
 
-	return dbError(err)
+	return ttxDBError(err)
 }
 
 func (w *AtomicWrite) AddValidationRecord(txID string, meta map[string][]byte) error {
@@ -504,10 +519,10 @@ func (w *AtomicWrite) AddValidationRecord(txID string, meta map[string][]byte) e
 	logger.Debug(query, txID, len(md), now)
 
 	_, err = w.txn.Exec(query, txID, md, now)
-	return dbError(err)
+	return ttxDBError(err)
 }
 
-func dbError(err error) error {
+func ttxDBError(err error) error {
 	if err == nil {
 		return nil
 	}
