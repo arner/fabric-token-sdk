@@ -419,7 +419,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 	tr := []driver.TransactionRecord{
 		{
 			TxID:         "1",
-			Index:        0,
 			ActionType:   driver.Issue,
 			SenderEID:    "",
 			RecipientEID: "bob",
@@ -430,7 +429,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "2",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -441,7 +439,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "2",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "bob",
@@ -452,7 +449,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "3",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -463,7 +459,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "4",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -474,7 +469,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "5",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "bob",
 			RecipientEID: "alice",
@@ -485,7 +479,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "6",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "bob",
@@ -496,7 +489,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "7",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "bob",
@@ -507,7 +499,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "7",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "dan",
@@ -518,7 +509,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "8",
-			Index:        0,
 			ActionType:   driver.Redeem,
 			SenderEID:    "dan",
 			RecipientEID: "carlos",
@@ -529,7 +519,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "9",
-			Index:        0,
 			ActionType:   driver.Transfer,
 			SenderEID:    "alice",
 			RecipientEID: "dan",
@@ -540,7 +529,6 @@ func TTransactionQueries(t *testing.T, db driver.TokenTransactionDB) {
 		},
 		{
 			TxID:         "10",
-			Index:        0,
 			ActionType:   driver.Redeem,
 			SenderEID:    "alice",
 			RecipientEID: "",
